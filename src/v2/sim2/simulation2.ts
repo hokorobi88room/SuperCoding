@@ -81,6 +81,12 @@ function wgslConsts(): string {
     `const FP = ${FIXED_POINT.toFixed(1)};`,
     `const R_FOOD = ${ROLE_FOOD}u;`,
     `const R_CREATURE = ${ROLE_CREATURE}u;`,
+    // 統合ストレージ構造体の固定配列長(baseline 8本に束ねるため)
+    `const COUNTERS_LEN = ${COUNTERS_U32}u;`,
+    `const CELL_AGENTS_LEN = ${NUM_CELLS * CELL_CAPACITY}u;`,
+    `const SIG_ACCUM_LEN = ${SIG_W * SIG_H * 4}u;`,
+    `const STRUCT_ACCUM_LEN = ${STRUCT_W * STRUCT_H}u;`,
+    `const SAMPLE_LEN = ${SAMPLE_COUNT * SAMPLE_STRIDE_F32}u;`,
     `const NIN = ${NIN};`,
     `const NHID = ${NHID};`,
     `const NOUT = ${NOUT};`,
@@ -169,11 +175,8 @@ export function createSimulation2(
     code: wgslConsts() + simShaderSrc,
   });
 
-  // sampleGather の詰め先(内部storageバッファ→sampleStagingへコピー)
-  const sampleBuf = device.createBuffer({
-    size: SAMPLE_COUNT * SAMPLE_STRIDE_F32 * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-  });
+  // sampleGather の詰め先は aux.sample(統合バッファ aux 内)。
+  // aux 先頭に SpawnBuf、その後ろに sample 配列が並ぶ(offset = SPAWN_BUF_BYTES)。
 
   const bufEntry = (
     binding: number,
@@ -184,21 +187,35 @@ export function createSimulation2(
     buffer: { type },
   });
 
+  // storage buffer は binding 0..7 の 8 本(= WebGPU baseline 上限ちょうど)。
+  // 上限引き上げ要求なしで動くよう、sim 専用の小バッファは構造体で束ねてある。
   const bgl = device.createBindGroupLayout({
     entries: [
-      bufEntry(0, "storage"),
-      bufEntry(1, "storage"),
-      bufEntry(2, "storage"),
-      bufEntry(3, "storage"),
-      bufEntry(4, "storage"),
-      bufEntry(5, "storage"),
-      bufEntry(6, "storage"),
-      bufEntry(7, "storage"),
-      bufEntry(8, "storage"),
-      bufEntry(9, "storage"),
-      bufEntry(10, "storage"),
-      bufEntry(11, "uniform"),
-      bufEntry(12, "uniform"),
+      bufEntry(0, "storage"), // creatureA
+      bufEntry(1, "storage"), // creatureB
+      bufEntry(2, "storage"), // brain
+      bufEntry(3, "storage"), // flags(aliveFlags)
+      bufEntry(4, "storage"), // ctrl  = counters + freeList
+      bufEntry(5, "storage"), // grid  = cellCount + cellAgents
+      bufEntry(6, "storage"), // accum = signalAccum + structAccum
+      bufEntry(7, "storage"), // aux   = spawn + sample
+      bufEntry(8, "uniform"), // cfg
+      bufEntry(9, "uniform"), // inter
+      {
+        binding: 10,
+        visibility: GPUShaderStage.COMPUTE,
+        texture: { sampleType: "float" },
+      },
+      {
+        binding: 11,
+        visibility: GPUShaderStage.COMPUTE,
+        texture: { sampleType: "float" },
+      },
+      {
+        binding: 12,
+        visibility: GPUShaderStage.COMPUTE,
+        sampler: { type: "filtering" },
+      },
       {
         binding: 13,
         visibility: GPUShaderStage.COMPUTE,
@@ -207,29 +224,13 @@ export function createSimulation2(
       {
         binding: 14,
         visibility: GPUShaderStage.COMPUTE,
-        texture: { sampleType: "float" },
+        storageTexture: { access: "write-only", format: "rgba16float" },
       },
       {
         binding: 15,
         visibility: GPUShaderStage.COMPUTE,
-        sampler: { type: "filtering" },
-      },
-      {
-        binding: 16,
-        visibility: GPUShaderStage.COMPUTE,
-        texture: { sampleType: "float" },
-      },
-      {
-        binding: 17,
-        visibility: GPUShaderStage.COMPUTE,
-        storageTexture: { access: "write-only", format: "rgba16float" },
-      },
-      {
-        binding: 18,
-        visibility: GPUShaderStage.COMPUTE,
         storageTexture: { access: "read-write", format: "r32float" },
       },
-      bufEntry(19, "storage"),
     ],
   });
 
@@ -280,22 +281,18 @@ export function createSimulation2(
         { binding: 1, resource: { buffer: buffers.creatureData[1 - aIdx] } },
         { binding: 2, resource: { buffer: buffers.brainWeights } },
         { binding: 3, resource: { buffer: buffers.aliveFlags } },
-        { binding: 4, resource: { buffer: buffers.freeList } },
-        { binding: 5, resource: { buffer: buffers.counters } },
-        { binding: 6, resource: { buffer: buffers.cellCount } },
-        { binding: 7, resource: { buffer: buffers.cellAgents } },
-        { binding: 8, resource: { buffer: buffers.spawnRequests } },
-        { binding: 9, resource: { buffer: buffers.signalAccum } },
-        { binding: 10, resource: { buffer: buffers.structAccum } },
-        { binding: 11, resource: { buffer: buffers.config } },
-        { binding: 12, resource: { buffer: buffers.interaction } },
-        { binding: 13, resource: obstacleView },
-        { binding: 14, resource: flowView },
-        { binding: 15, resource: sampler },
-        { binding: 16, resource: sigView[aIdx] },
-        { binding: 17, resource: sigView[1 - aIdx] },
-        { binding: 18, resource: structView },
-        { binding: 19, resource: { buffer: sampleBuf } },
+        { binding: 4, resource: { buffer: buffers.ctrl } },
+        { binding: 5, resource: { buffer: buffers.grid } },
+        { binding: 6, resource: { buffer: buffers.accum } },
+        { binding: 7, resource: { buffer: buffers.aux } },
+        { binding: 8, resource: { buffer: buffers.config } },
+        { binding: 9, resource: { buffer: buffers.interaction } },
+        { binding: 10, resource: obstacleView },
+        { binding: 11, resource: flowView },
+        { binding: 12, resource: sampler },
+        { binding: 13, resource: sigView[aIdx] },
+        { binding: 14, resource: sigView[1 - aIdx] },
+        { binding: 15, resource: structView },
       ],
     });
   // bindGroups[readIdx] を使う: readIdx=0 のとき A=creatureData[0], sigRead=signalField[0]
@@ -493,16 +490,18 @@ export function createSimulation2(
         !copyRequested
       ) {
         encodePass(encoder, pipe.sampleGather, bg, SAMPLE_GROUPS);
+        // ctrl 先頭に counters(24 u32)が並ぶ → offset 0 から読み戻す。
         encoder.copyBufferToBuffer(
-          buffers.counters,
+          buffers.ctrl,
           0,
           buffers.countersStaging,
           0,
           COUNTERS_U32 * 4,
         );
+        // aux は [SpawnBuf | sample[]] なので sample は SPAWN_BUF_BYTES から。
         encoder.copyBufferToBuffer(
-          sampleBuf,
-          0,
+          buffers.aux,
+          SPAWN_BUF_BYTES,
           buffers.sampleStaging,
           0,
           SAMPLE_COUNT * SAMPLE_STRIDE_F32 * 4,
@@ -571,7 +570,8 @@ export function createSimulation2(
         f[bf + 5] = r.energy;
         // pad(bf+6, bf+7) は 0
       }
-      device.queue.writeBuffer(buffers.spawnRequests, 0, buf);
+      // aux 先頭が SpawnBuf なので offset 0 にそのまま書ける。
+      device.queue.writeBuffer(buffers.aux, 0, buf);
     },
   };
 

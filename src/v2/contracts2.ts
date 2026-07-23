@@ -289,17 +289,20 @@ export interface SimBuffers2 {
   creatureData: [GPUBuffer, GPUBuffer];
   brainWeights: GPUBuffer;
   aliveFlags: GPUBuffer;
-  freeList: GPUBuffer;
-  counters: GPUBuffer;
-  cellCount: GPUBuffer;
-  cellAgents: GPUBuffer;
+  // --- 統合ストレージ(baseline: storage buffer 8本に収めるための束ね)---
+  // WGSL: struct Ctrl/Grid/Accum/Aux(sim2.wgsl)と厳密一致。
+  /** counters(atomic×COUNTERS_U32) + freeList(u32×MAX_CREATURES) */
+  ctrl: GPUBuffer;
+  /** cellCount(atomic×NUM_CELLS) + cellAgents(u32×NUM_CELLS*CELL_CAPACITY) */
+  grid: GPUBuffer;
+  /** signalAccum(atomic×SIG_W*SIG_H*4) + structAccum(atomic×STRUCT_W*STRUCT_H) */
+  accum: GPUBuffer;
+  /** SpawnBuf(神の恵み湧き要求) + sample(CPUサンプリング詰め先, f32) */
+  aux: GPUBuffer;
   signalField: [GPUTexture, GPUTexture]; // rgba16float, ping-pong
-  signalAccum: GPUBuffer;                // array<atomic<u32>> SIG_W*SIG_H*4
   structureGrid: GPUTexture;             // r32float 永続
-  structAccum: GPUBuffer;                // array<atomic<u32>> STRUCT_W*STRUCT_H
   obstacleTex: GPUTexture;               // r8unorm(障壁)
   flowTex: GPUTexture;                   // rgba8unorm(潮流)
-  spawnRequests: GPUBuffer;
   config: GPUBuffer;      // uniform
   interaction: GPUBuffer; // uniform
   countersStaging: GPUBuffer;

@@ -1,0 +1,61 @@
+name: Deploy to GitHub Pages
+
+# 『神の観察 (Deus Ex Vita)』を GitHub Pages に自動デプロイする。
+# 初回のみ: リポジトリ Settings → Pages → Build and deployment → Source を
+#           「GitHub Actions」に切り替えてください(以後はこのワークフローが公開します)。
+# 公開URL: https://<owner>.github.io/<repo>/  例) https://hokorobi88room.github.io/supercoding/
+
+on:
+  push:
+    branches:
+      - main
+      - claude/why-u7thuk
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時デプロイは1本に絞る(進行中はキャンセルせず完走させる)
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build (Vite)
+        # プロジェクトサイトはサブパス配信なので base を /<repo>/ に合わせる。
+        env:
+          PAGES_BASE: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

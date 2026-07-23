@@ -2,4 +2,4 @@ node_modules/
 dist/
 .vite/
 *.log
-.github/workflows/deploy.yml
+scratch_*

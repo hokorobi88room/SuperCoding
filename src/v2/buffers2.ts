@@ -69,13 +69,20 @@ export function createSimBuffers2(device: GPUDevice): SimBuffers2 {
     ],
     brainWeights: sb(MAX_CREATURES * BRAIN_STRIDE * 4),
     aliveFlags: sb(MAX_CREATURES * 4),
-    freeList: sb(MAX_CREATURES * 4),
-    counters: sb(COUNTERS_U32 * 4, GPUBufferUsage.COPY_SRC),
-    cellCount: sb(NUM_CELLS * 4),
-    cellAgents: sb(NUM_CELLS * CELL_CAPACITY * 4),
+    // --- 統合ストレージ(WGSL の struct Ctrl/Grid/Accum/Aux と厳密一致)---
+    // baseline 上限(storage 8本)に収めるため sim 専用の小バッファを束ねる。
+    // ctrl  = counters[24] + freeList[MAXC]  (counters 読み戻し用に COPY_SRC)
+    ctrl: sb((COUNTERS_U32 + MAX_CREATURES) * 4, GPUBufferUsage.COPY_SRC),
+    // grid  = cellCount[NUM_CELLS] + cellAgents[NUM_CELLS*CELL_CAP]
+    grid: sb((NUM_CELLS + NUM_CELLS * CELL_CAPACITY) * 4),
+    // accum = signalAccum[SIG_W*SIG_H*4] + structAccum[STRUCT_W*STRUCT_H]
+    accum: sb((SIG_W * SIG_H * 4 + STRUCT_W * STRUCT_H) * 4),
+    // aux   = SpawnBuf + sample[SAMPLE_COUNT*STRIDE]  (sample 読み戻し用に COPY_SRC)
+    aux: sb(
+      SPAWN_BUF_BYTES + SAMPLE_COUNT * SAMPLE_STRIDE_F32 * 4,
+      GPUBufferUsage.COPY_SRC,
+    ),
     signalField: [sigTex(), sigTex()],
-    signalAccum: sb(SIG_W * SIG_H * 4 * 4),
-    structAccum: sb(STRUCT_W * STRUCT_H * 4),
     structureGrid: device.createTexture({
       size: [STRUCT_W, STRUCT_H],
       format: STRUCT_FORMAT,
@@ -94,7 +101,6 @@ export function createSimBuffers2(device: GPUDevice): SimBuffers2 {
       format: "rgba8unorm",
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     }),
-    spawnRequests: sb(SPAWN_BUF_BYTES),
     config: device.createBuffer({
       size: CONFIG_BYTES,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -209,22 +215,24 @@ export function seedGenesis(
   device.queue.writeBuffer(buffers.creatureData[1], 0, data);
   device.queue.writeBuffer(buffers.brainWeights, 0, brains);
   device.queue.writeBuffer(buffers.aliveFlags, 0, flags);
-  device.queue.writeBuffer(buffers.freeList, 0, freeList);
-  device.queue.writeBuffer(buffers.counters, 0, counters);
+  // ctrl = [counters(24) | freeList(MAXC)] : counters は offset 0、freeList は 24u32 後ろ。
+  device.queue.writeBuffer(buffers.ctrl, 0, counters);
+  device.queue.writeBuffer(buffers.ctrl, COUNTERS_U32 * 4, freeList);
+  // aux = [SpawnBuf | sample] : SpawnBuf 領域(先頭)をゼロクリア。sample は GPU が詰める。
   device.queue.writeBuffer(
-    buffers.spawnRequests,
+    buffers.aux,
     0,
     new Uint32Array(SPAWN_BUF_BYTES / 4),
   );
-  // 沈着アキュムレータをゼロクリア
+  // accum = [signalAccum(SIG_W*SIG_H*4) | structAccum(STRUCT_W*STRUCT_H)] をゼロクリア。
   device.queue.writeBuffer(
-    buffers.signalAccum,
+    buffers.accum,
     0,
     new Uint32Array(SIG_W * SIG_H * 4),
   );
   device.queue.writeBuffer(
-    buffers.structAccum,
-    0,
+    buffers.accum,
+    SIG_W * SIG_H * 4 * 4,
     new Uint32Array(STRUCT_W * STRUCT_H),
   );
 

@@ -55,28 +55,49 @@ struct SpawnBuf {
 };
 
 // ---------------------------------------------------------------------
-// バインディング
+// 統合ストレージ構造体
+//   WebGPU ベースライン上限(maxStorageBuffersPerShaderStage = 8)に収めるため、
+//   sim 専用の小バッファを構造体で束ねて 1 バインドに集約する。
+//   ・array の要素数は simulation2.ts が注入する定数(COUNTERS_LEN 等)で確定。
+//   ・atomic 版(counters/count/sig/strc)と非 atomic 版(freeList/agents/sample)は
+//     別メンバなので同一バッファでも安全に共存する。
 // ---------------------------------------------------------------------
-@group(0) @binding(0)  var<storage, read_write> creatureA  : array<Creature>;      // 読み側A
-@group(0) @binding(1)  var<storage, read_write> creatureB  : array<Creature>;      // 書き側B
-@group(0) @binding(2)  var<storage, read_write> brain      : array<f32>;           // 脳の重み(非ping-pong)
-@group(0) @binding(3)  var<storage, read_write> flags      : array<atomic<u32>>;   // 0空/1生/2死
-@group(0) @binding(4)  var<storage, read_write> freeList   : array<u32>;
-@group(0) @binding(5)  var<storage, read_write> counters   : array<atomic<u32>>;
-@group(0) @binding(6)  var<storage, read_write> cellCount  : array<atomic<u32>>;
-@group(0) @binding(7)  var<storage, read_write> cellAgents : array<u32>;
-@group(0) @binding(8)  var<storage, read_write> sb         : SpawnBuf;
-@group(0) @binding(9)  var<storage, read_write> sigAccum   : array<atomic<u32>>;   // 信号沈着(固定小数×1024, rgba)
-@group(0) @binding(10) var<storage, read_write> structAccum: array<atomic<u32>>;   // 建造沈着
-@group(0) @binding(11) var<uniform>             cfg        : Config;
-@group(0) @binding(12) var<uniform>             inter      : Interaction;
-@group(0) @binding(13) var obstacleTex : texture_2d<f32>;
-@group(0) @binding(14) var flowTex     : texture_2d<f32>;
-@group(0) @binding(15) var samp        : sampler;
-@group(0) @binding(16) var sigRead     : texture_2d<f32>;                          // 信号場 読み(sampled)
-@group(0) @binding(17) var sigWrite    : texture_storage_2d<rgba16float, write>;   // 信号場 書き
-@group(0) @binding(18) var structGrid  : texture_storage_2d<r32float, read_write>; // 建造(永続)
-@group(0) @binding(19) var<storage, read_write> sampleBuf : array<f32>;            // CPUサンプリング詰め先
+struct Ctrl {
+  counters : array<atomic<u32>, COUNTERS_LEN>,  // CounterSlot(FREE_TOP/POP/SUM_*)
+  freeList : array<u32, MAXC>,                  // 空きスロットのスタック(freeTop=ctrl.counters[0])
+};
+struct Grid {
+  count  : array<atomic<u32>, NUM_CELLS>,       // セル内個体数
+  agents : array<u32, CELL_AGENTS_LEN>,         // セル→個体slot(NUM_CELLS*CELL_CAP)
+};
+struct Accum {
+  sig  : array<atomic<u32>, SIG_ACCUM_LEN>,     // 信号沈着(固定小数×1024, rgba)
+  strc : array<atomic<u32>, STRUCT_ACCUM_LEN>,  // 建造沈着
+};
+struct Aux {
+  spawn  : SpawnBuf,                            // 神の恵み(食料)湧き要求
+  sample : array<f32, SAMPLE_LEN>,              // CPUサンプリング詰め先
+};
+
+// ---------------------------------------------------------------------
+// バインディング(storage buffer は binding 0..7 の 8 本 = ベースライン上限ちょうど)
+// ---------------------------------------------------------------------
+@group(0) @binding(0)  var<storage, read_write> creatureA : array<Creature>;      // 読み側A
+@group(0) @binding(1)  var<storage, read_write> creatureB : array<Creature>;      // 書き側B
+@group(0) @binding(2)  var<storage, read_write> brain     : array<f32>;           // 脳の重み(非ping-pong)
+@group(0) @binding(3)  var<storage, read_write> flags     : array<atomic<u32>>;   // 0空/1生/2死
+@group(0) @binding(4)  var<storage, read_write> ctrl      : Ctrl;                  // counters + freeList
+@group(0) @binding(5)  var<storage, read_write> grid      : Grid;                  // cellCount + cellAgents
+@group(0) @binding(6)  var<storage, read_write> accum     : Accum;                 // signalAccum + structAccum
+@group(0) @binding(7)  var<storage, read_write> aux       : Aux;                   // spawn + sample
+@group(0) @binding(8)  var<uniform>             cfg       : Config;
+@group(0) @binding(9)  var<uniform>             inter     : Interaction;
+@group(0) @binding(10) var obstacleTex : texture_2d<f32>;
+@group(0) @binding(11) var flowTex     : texture_2d<f32>;
+@group(0) @binding(12) var samp        : sampler;
+@group(0) @binding(13) var sigRead     : texture_2d<f32>;                          // 信号場 読み(sampled)
+@group(0) @binding(14) var sigWrite    : texture_storage_2d<rgba16float, write>;   // 信号場 書き
+@group(0) @binding(15) var structGrid  : texture_storage_2d<r32float, read_write>; // 建造(永続)
 
 // ---------------------------------------------------------------------
 // 定数(挙動チューニング)
@@ -151,17 +172,17 @@ fn sampleFlow(p: vec2f) -> vec3f {
 
 // フリーリスト pop(空なら -1)。アンダーフロー時は atomicAdd で戻す。
 fn popFree() -> i32 {
-  let old = atomicSub(&counters[C_FREE_TOP], 1u);
+  let old = atomicSub(&ctrl.counters[C_FREE_TOP], 1u);
   if (old == 0u) {
-    atomicAdd(&counters[C_FREE_TOP], 1u);
+    atomicAdd(&ctrl.counters[C_FREE_TOP], 1u);
     return -1;
   }
-  return i32(freeList[old - 1u]);
+  return i32(ctrl.freeList[old - 1u]);
 }
 
 fn pushFree(slot: u32) {
-  let k = atomicAdd(&counters[C_FREE_TOP], 1u);
-  freeList[k] = slot;
+  let k = atomicAdd(&ctrl.counters[C_FREE_TOP], 1u);
+  ctrl.freeList[k] = slot;
 }
 
 // 信号場テクセルへ沈着(固定小数×1024)。ch: 0=culture 1=food 2=danger
@@ -170,14 +191,14 @@ fn depositSignal(pos: vec2f, ch: u32, amt: f32) {
   let sx = u32(clamp(floor(pos.x / WORLD.x * SIGWF), 0.0, SIGWF - 1.0));
   let sy = u32(clamp(floor(pos.y / WORLD.y * SIGHF), 0.0, SIGHF - 1.0));
   let idx = (sy * SIG_W_U + sx) * 4u + ch;
-  atomicAdd(&sigAccum[idx], u32(amt * FP));
+  atomicAdd(&accum.sig[idx], u32(amt * FP));
 }
 
 fn depositStruct(pos: vec2f, amt: f32) {
   if (amt <= 0.0) { return; }
   let sx = u32(clamp(floor(pos.x / WORLD.x * STRWF), 0.0, STRWF - 1.0));
   let sy = u32(clamp(floor(pos.y / WORLD.y * STRHF), 0.0, STRHF - 1.0));
-  atomicAdd(&structAccum[sy * STR_W_U + sx], u32(amt * FP));
+  atomicAdd(&accum.strc[sy * STR_W_U + sx], u32(amt * FP));
 }
 
 // 遺伝+ミーム類似度(0..1, 1=そっくり)
@@ -217,9 +238,9 @@ fn brainForward(slot: u32, x: ptr<function, array<f32, NIN>>) -> array<f32, NOUT
 @compute @workgroup_size(256)
 fn spawn(@builtin(global_invocation_id) gid: vec3u) {
   let i = gid.x;
-  let n = sb.count;
+  let n = aux.spawn.count;
   if (i < n && i < MAX_SPAWN_REQ) {
-    let req = sb.reqs[i];
+    let req = aux.spawn.reqs[i];
     let baseSeed = (i + 1u) * 2654435761u + cfg.c2.x * 40503u + 2246822519u;
     var c = 0u;
     loop {
@@ -257,7 +278,7 @@ fn spawn(@builtin(global_invocation_id) gid: vec3u) {
     }
   }
   workgroupBarrier();
-  if (i == 0u) { sb.count = 0u; }
+  if (i == 0u) { aux.spawn.count = 0u; }
 }
 
 // ---------------------------------------------------------------------
@@ -266,12 +287,12 @@ fn spawn(@builtin(global_invocation_id) gid: vec3u) {
 @compute @workgroup_size(256)
 fn clearGrid(@builtin(global_invocation_id) gid: vec3u) {
   let i = gid.x;
-  if (i < NUM_CELLS) { atomicStore(&cellCount[i], 0u); }
+  if (i < NUM_CELLS) { atomicStore(&grid.count[i], 0u); }
   if (i == 0u) {
-    atomicStore(&counters[C_POP_FOOD], 0u);
-    atomicStore(&counters[C_POP_CREATURE], 0u);
+    atomicStore(&ctrl.counters[C_POP_FOOD], 0u);
+    atomicStore(&ctrl.counters[C_POP_CREATURE], 0u);
     for (var g = C_SUM_DIET; g <= C_SUM_SIZE; g = g + 1u) {
-      atomicStore(&counters[g], 0u);
+      atomicStore(&ctrl.counters[g], 0u);
     }
   }
 }
@@ -285,8 +306,8 @@ fn buildGrid(@builtin(global_invocation_id) gid: vec3u) {
   if (i >= MAXC) { return; }
   if (atomicLoad(&flags[i]) != 1u) { return; }
   let cell = cellOf(creatureA[i].pos);
-  let k = atomicAdd(&cellCount[cell], 1u);
-  if (k < CELL_CAP) { cellAgents[cell * CELL_CAP + k] = i; }
+  let k = atomicAdd(&grid.count[cell], 1u);
+  if (k < CELL_CAP) { grid.agents[cell * CELL_CAP + k] = i; }
 }
 
 // ---------------------------------------------------------------------
@@ -349,9 +370,9 @@ fn behaviorCreature(i: u32, a_in: Creature, dt: f32) -> Creature {
       let gx = (((bx + ox) % GRID_W) + GRID_W) % GRID_W;
       let gy = (((by + oy) % GRID_H) + GRID_H) % GRID_H;
       let cell = u32(gy) * GRID_W_U + u32(gx);
-      let cnt = min(min(atomicLoad(&cellCount[cell]), CELL_CAP), 24u);
+      let cnt = min(min(atomicLoad(&grid.count[cell]), CELL_CAP), 24u);
       for (var k = 0u; k < cnt; k = k + 1u) {
-        let j = cellAgents[cell * CELL_CAP + k];
+        let j = grid.agents[cell * CELL_CAP + k];
         if (j == i) { continue; }
         if (atomicLoad(&flags[j]) != 1u) { continue; }
         let b = creatureA[j];
@@ -417,7 +438,7 @@ fn behaviorCreature(i: u32, a_in: Creature, dt: f32) -> Creature {
     let fj = u32(eatFoodSlot);
     if (atomicCompareExchangeWeak(&flags[fj], 1u, 2u).exchanged) {
       a.energy = a.energy + 14.0;
-      atomicAdd(&counters[C_EATS], 1u);
+      atomicAdd(&ctrl.counters[C_EATS], 1u);
     }
   }
 
@@ -426,7 +447,7 @@ fn behaviorCreature(i: u32, a_in: Creature, dt: f32) -> Creature {
     let aj = u32(attackSlot);
     if (atomicCompareExchangeWeak(&flags[aj], 1u, 2u).exchanged) {
       a.energy = a.energy + 20.0 + 30.0 * a.diet;
-      atomicAdd(&counters[C_KILLS], 1u);
+      atomicAdd(&ctrl.counters[C_KILLS], 1u);
       depositSignal(creatureA[aj].pos, 2u, 6.0);         // 危険痕跡
     }
   }
@@ -435,7 +456,7 @@ fn behaviorCreature(i: u32, a_in: Creature, dt: f32) -> Creature {
   let emit = max(o[5], 0.0);
   if (emit > 0.0) {
     depositSignal(a.pos, 0u, emit * 8.0 * dt);
-    if (emit > 0.1) { atomicAdd(&counters[C_SUM_EMIT], u32(emit * FP)); }
+    if (emit > 0.1) { atomicAdd(&ctrl.counters[C_SUM_EMIT], u32(emit * FP)); }
   }
 
   // ミームドリフト(自己変調 + 近傍高エネルギー個体からの水平伝播)
@@ -499,16 +520,16 @@ fn behaviorCreature(i: u32, a_in: Creature, dt: f32) -> Creature {
   if (cfg.c1.y > 0.5 && a.energy > REPRO_TH * 1.2) {
     if (nextRand(&seed) < 0.05) {
       depositStruct(a.pos, 3.0);
-      atomicAdd(&counters[C_BUILDS], 1u);
+      atomicAdd(&ctrl.counters[C_BUILDS], 1u);
     }
   }
 
   // 形質集計(×1024)
-  atomicAdd(&counters[C_SUM_DIET], u32(clamp(a.diet, 0.0, 1.0) * FP));
-  atomicAdd(&counters[C_SUM_AGGR], u32(max(o[4], 0.0) * FP));
-  atomicAdd(&counters[C_SUM_SOCIAL], u32(density * FP));
-  atomicAdd(&counters[C_SUM_SPEED], u32(spd01 * FP));
-  atomicAdd(&counters[C_SUM_SIZE], u32(clamp(a.size, 0.0, 1.0) * FP));
+  atomicAdd(&ctrl.counters[C_SUM_DIET], u32(clamp(a.diet, 0.0, 1.0) * FP));
+  atomicAdd(&ctrl.counters[C_SUM_AGGR], u32(max(o[4], 0.0) * FP));
+  atomicAdd(&ctrl.counters[C_SUM_SOCIAL], u32(density * FP));
+  atomicAdd(&ctrl.counters[C_SUM_SPEED], u32(spd01 * FP));
+  atomicAdd(&ctrl.counters[C_SUM_SIZE], u32(clamp(a.size, 0.0, 1.0) * FP));
 
   a.seed = seed;
   return a;
@@ -559,18 +580,18 @@ fn signalBake(@builtin(global_invocation_id) gid: vec3u) {
 
   let base = idx * 4u;
   var acc: vec4f;
-  acc.x = f32(atomicLoad(&sigAccum[base + 0u])) / FP;
-  acc.y = f32(atomicLoad(&sigAccum[base + 1u])) / FP;
-  acc.z = f32(atomicLoad(&sigAccum[base + 2u])) / FP;
-  acc.w = f32(atomicLoad(&sigAccum[base + 3u])) / FP;
+  acc.x = f32(atomicLoad(&accum.sig[base + 0u])) / FP;
+  acc.y = f32(atomicLoad(&accum.sig[base + 1u])) / FP;
+  acc.z = f32(atomicLoad(&accum.sig[base + 2u])) / FP;
+  acc.w = f32(atomicLoad(&accum.sig[base + 3u])) / FP;
 
   let outv = clamp(decay * blur + acc, vec4f(0.0), vec4f(8.0));
   textureStore(sigWrite, vec2i(x, y), outv);
 
-  atomicStore(&sigAccum[base + 0u], 0u);
-  atomicStore(&sigAccum[base + 1u], 0u);
-  atomicStore(&sigAccum[base + 2u], 0u);
-  atomicStore(&sigAccum[base + 3u], 0u);
+  atomicStore(&accum.sig[base + 0u], 0u);
+  atomicStore(&accum.sig[base + 1u], 0u);
+  atomicStore(&accum.sig[base + 2u], 0u);
+  atomicStore(&accum.sig[base + 3u], 0u);
 }
 
 // ---------------------------------------------------------------------
@@ -584,7 +605,7 @@ fn death(@builtin(global_invocation_id) gid: vec3u) {
   if (f == 2u) {
     if (atomicCompareExchangeWeak(&flags[i], 2u, 0u).exchanged) {
       pushFree(i);
-      atomicAdd(&counters[C_DEATHS], 1u);
+      atomicAdd(&ctrl.counters[C_DEATHS], 1u);
       depositSignal(creatureB[i].pos, 2u, 5.0);          // 死の痕跡
     }
     return;
@@ -597,7 +618,7 @@ fn death(@builtin(global_invocation_id) gid: vec3u) {
     if (dead) {
       if (atomicCompareExchangeWeak(&flags[i], 1u, 0u).exchanged) {
         pushFree(i);
-        atomicAdd(&counters[C_DEATHS], 1u);
+        atomicAdd(&ctrl.counters[C_DEATHS], 1u);
         if (a.role == R_CREATURE) { depositSignal(a.pos, 2u, 5.0); }
       }
     }
@@ -645,7 +666,7 @@ fn birth(@builtin(global_invocation_id) gid: vec3u) {
           brain[cb + w] = brain[pb + w] + gaussRand(&seed) * mutation * 0.4;
         }
         atomicStore(&flags[cu], 1u);
-        atomicAdd(&counters[C_BIRTHS], 1u);
+        atomicAdd(&ctrl.counters[C_BIRTHS], 1u);
         a.energy = a.energy - REPRO_COST;
         a.signalMem = 0.0;
       }
@@ -684,11 +705,11 @@ fn structBake(@builtin(global_invocation_id) gid: vec3u) {
   let x = i32(idx % STR_W_U);
   let y = i32(idx / STR_W_U);
   let cur = textureLoad(structGrid, vec2i(x, y)).r;
-  let add = f32(atomicLoad(&structAccum[idx])) / FP;
+  let add = f32(atomicLoad(&accum.strc[idx])) / FP;
   let decay = exp(-0.05 * cfg.c0.x);
   let outv = clamp(cur * decay + add, 0.0, 16.0);
   textureStore(structGrid, vec2i(x, y), vec4f(outv, 0.0, 0.0, 1.0));
-  atomicStore(&structAccum[idx], 0u);
+  atomicStore(&accum.strc[idx], 0u);
 }
 
 // ---------------------------------------------------------------------
@@ -701,9 +722,9 @@ fn census(@builtin(global_invocation_id) gid: vec3u) {
   if (atomicLoad(&flags[i]) != 1u) { return; }
   let role = creatureB[i].role;
   if (role == R_FOOD) {
-    atomicAdd(&counters[C_POP_FOOD], 1u);
+    atomicAdd(&ctrl.counters[C_POP_FOOD], 1u);
   } else {
-    atomicAdd(&counters[C_POP_CREATURE], 1u);
+    atomicAdd(&ctrl.counters[C_POP_CREATURE], 1u);
   }
 }
 
@@ -717,13 +738,13 @@ fn sampleGather(@builtin(global_invocation_id) gid: vec3u) {
   if (i >= SAMPLE_COUNT) { return; }
   let a = creatureB[i];
   let base = i * SAMPLE_STRIDE;
-  sampleBuf[base + 0u] = a.meme.x;
-  sampleBuf[base + 1u] = a.meme.y;
-  sampleBuf[base + 2u] = a.meme.z;
-  sampleBuf[base + 3u] = a.meme.w;
-  sampleBuf[base + 4u] = a.lineage;
-  sampleBuf[base + 5u] = a.diet;
-  sampleBuf[base + 6u] = a.energy;
+  aux.sample[base + 0u] = a.meme.x;
+  aux.sample[base + 1u] = a.meme.y;
+  aux.sample[base + 2u] = a.meme.z;
+  aux.sample[base + 3u] = a.meme.w;
+  aux.sample[base + 4u] = a.lineage;
+  aux.sample[base + 5u] = a.diet;
+  aux.sample[base + 6u] = a.energy;
   let alive = atomicLoad(&flags[i]) == 1u;
-  sampleBuf[base + 7u] = select(-1.0, f32(a.role), alive);
+  aux.sample[base + 7u] = select(-1.0, f32(a.role), alive);
 }

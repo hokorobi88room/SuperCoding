@@ -44,24 +44,10 @@ async function boot(): Promise<void> {
     fail("GPUアダプタを取得できませんでした。");
     return;
   }
-  // 神経シミュは1バインドグループで12ストレージバッファを使う(既定上限8を超える)。
-  // アダプタが許す範囲で上限を引き上げて要求する。
-  const al = adapter.limits;
-  const wantStorageBuffers = 12;
-  if (al.maxStorageBuffersPerShaderStage < wantStorageBuffers) {
-    fail(
-      "このGPUは必要なストレージバッファ数に対応していません。\nChrome / Edge の最新版でお試しください。",
-    );
-    return;
-  }
-  const device = await adapter.requestDevice({
-    requiredLimits: {
-      maxStorageBuffersPerShaderStage: Math.min(
-        16,
-        al.maxStorageBuffersPerShaderStage,
-      ),
-    },
-  });
+  // 神経シミュは1バインドグループで storage バッファを 8 本使う。これは WebGPU の
+  // ベースライン上限(maxStorageBuffersPerShaderStage = 8)ちょうどなので、上限引き上げ
+  // 要求は不要 — スマホや低スペックGPUを含め、どの WebGPU 対応環境でも起動できる。
+  const device = await adapter.requestDevice();
   device.lost.then((info) => {
     if (info.reason !== "destroyed") {
       fail("GPUデバイスが失われました。再読み込みしてください。");
