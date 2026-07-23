@@ -1,0 +1,598 @@
+/* =====================================================================
+   『神の観察』神視点UI スタイル。所有: ui 担当。
+   荘厳な暗色 + 金/白の細字。神託感。#ui-root は pointer-events:none、
+   各パネルだけ auto に戻す。
+   ===================================================================== */
+
+:root {
+  --ob-gold: #d8b874;
+  --ob-gold-soft: #ecdca8;
+  --ob-gold-dim: #8a7440;
+  --ob-white: #f3efe4;
+  --ob-txt: #cfc7b2;
+  --ob-txt-dim: #8f886f;
+  --ob-txt-faint: #6a6450;
+  --ob-glass: rgba(14, 12, 8, 0.62);
+  --ob-glass-strong: rgba(9, 8, 5, 0.8);
+  --ob-brd: rgba(216, 184, 116, 0.16);
+  --ob-brd-hi: rgba(216, 184, 116, 0.44);
+  --ob-glow: rgba(216, 184, 116, 0.35);
+  --ob-radius: 12px;
+  --ob-radius-sm: 8px;
+  --ob-font: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP",
+    "Hiragino Kaku Gothic ProN", "Yu Gothic UI", serif;
+}
+
+#ui-root {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* 子パネルで個別に auto へ戻す */
+  font-family: var(--ob-font);
+  color: var(--ob-txt);
+}
+
+/* ---- 共通パネル ---- */
+.ob-panel {
+  position: absolute;
+  pointer-events: auto;
+  background: var(--ob-glass);
+  border: 1px solid var(--ob-brd);
+  border-radius: var(--ob-radius);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(16px) saturate(1.15);
+  -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+
+.ob-mini-title {
+  font-size: 0.6rem;
+  letter-spacing: 0.28em;
+  color: var(--ob-txt-faint);
+  font-weight: 400;
+}
+.ob-sep {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(216, 184, 116, 0.22),
+    transparent
+  );
+  margin: 2px 0;
+}
+
+/* =================================================================
+   左上 神託HUD
+   ================================================================= */
+.ob-hud {
+  top: 18px;
+  left: 18px;
+  min-width: 210px;
+  padding: 15px 18px 13px;
+}
+.ob-title {
+  font-size: 1.18rem;
+  font-weight: 400;
+  letter-spacing: 0.42em;
+  text-indent: 0.42em;
+  color: var(--ob-gold-soft);
+  text-shadow: 0 0 22px var(--ob-glow);
+}
+.ob-subtitle {
+  margin-top: 3px;
+  font-size: 0.54rem;
+  letter-spacing: 0.34em;
+  color: var(--ob-txt-faint);
+}
+.ob-hud-grid {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 7px 22px;
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(216, 184, 116, 0.12);
+}
+.ob-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+.ob-stat-k {
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  color: var(--ob-txt-faint);
+}
+.ob-stat-v {
+  font-size: 1.02rem;
+  font-weight: 300;
+  color: var(--ob-gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+.ob-stat-v.ob-food {
+  color: #9ad39a;
+}
+
+/* =================================================================
+   左端 御業パレット
+   ================================================================= */
+.ob-palette {
+  left: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 13px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  width: 96px;
+}
+.ob-tool-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ob-tool {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  border-radius: var(--ob-radius-sm);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.028);
+  color: var(--ob-txt);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease,
+    border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+.ob-tool:hover {
+  background: rgba(216, 184, 116, 0.12);
+  color: var(--ob-gold-soft);
+  transform: translateY(-1px);
+}
+.ob-tool.active {
+  background: rgba(216, 184, 116, 0.2);
+  border-color: var(--ob-brd-hi);
+  color: var(--ob-white);
+  box-shadow: 0 0 14px var(--ob-glow),
+    inset 0 0 10px rgba(216, 184, 116, 0.14);
+}
+.ob-range-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ob-range-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.ob-range-l {
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  color: var(--ob-txt-faint);
+}
+.ob-range-v {
+  font-size: 0.66rem;
+  color: var(--ob-gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* レンジ入力共通 */
+.ob-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    rgba(216, 184, 116, 0.6),
+    rgba(216, 184, 116, 0.1)
+  );
+  outline: none;
+  cursor: pointer;
+}
+.ob-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--ob-gold-soft);
+  border: 2px solid #191510;
+  box-shadow: 0 0 8px var(--ob-glow);
+  transition: transform 0.12s ease;
+}
+.ob-range::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+.ob-range::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--ob-gold-soft);
+  border: 2px solid #191510;
+  box-shadow: 0 0 8px var(--ob-glow);
+}
+
+/* =================================================================
+   右上 系譜パネル
+   ================================================================= */
+.ob-lineage {
+  top: 18px;
+  right: 18px;
+  width: 258px;
+  max-height: calc(100vh - 36px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ob-lineage-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(216, 184, 116, 0.1);
+  flex: 0 0 auto;
+}
+.ob-lineage-title {
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  color: var(--ob-gold-soft);
+}
+.ob-collapse {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  border: 1px solid var(--ob-brd);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ob-txt-dim);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ob-collapse:hover {
+  background: rgba(216, 184, 116, 0.14);
+  color: var(--ob-gold-soft);
+}
+.ob-lineage-body {
+  padding: 12px 14px 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.ob-lineage.collapsed {
+  width: 50px;
+}
+.ob-lineage.collapsed .ob-lineage-title,
+.ob-lineage.collapsed .ob-lineage-body {
+  display: none;
+}
+.ob-lineage.collapsed .ob-lineage-head {
+  border-bottom: none;
+  justify-content: center;
+  padding: 12px 0;
+}
+
+/* 形質バー */
+.ob-trait-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.ob-trait-l {
+  flex: 0 0 76px;
+  font-size: 0.64rem;
+  color: var(--ob-txt-dim);
+  letter-spacing: 0.02em;
+}
+.ob-trait-bar {
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.ob-trait-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--ob-gold-dim), var(--ob-gold-soft));
+  box-shadow: 0 0 8px rgba(216, 184, 116, 0.45);
+  transition: width 0.5s ease;
+}
+/* 食性は寒色⇄暖色の両極グラデ */
+.ob-trait-fill.ob-trait-diet {
+  background: linear-gradient(90deg, #5aa9c8, #d98a5a, #d85a5a);
+  box-shadow: 0 0 8px rgba(217, 138, 90, 0.4);
+}
+.ob-trait-v {
+  flex: 0 0 30px;
+  text-align: right;
+  font-size: 0.62rem;
+  color: var(--ob-gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 部族 */
+.ob-tribe-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ob-tribe-count {
+  font-size: 0.86rem;
+  color: var(--ob-gold-soft);
+  font-variant-numeric: tabular-nums;
+}
+.ob-tribe-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.ob-swatch {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+/* =================================================================
+   下中央 年代記
+   ================================================================= */
+.ob-chronicle {
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, calc(100vw - 260px));
+  padding: 10px 16px 12px;
+}
+.ob-chronicle-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+}
+.ob-ch-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 4px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.ob-ch-row.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.ob-ch-time {
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  color: var(--ob-txt-faint);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+.ob-ch-icon {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  width: 1em;
+  text-align: center;
+}
+.ob-ch-text {
+  flex: 1 1 auto;
+  color: var(--ob-txt);
+}
+/* 直近ほど明るく(先頭行) */
+.ob-chronicle-list > .ob-ch-row:first-child .ob-ch-text {
+  color: var(--ob-white);
+}
+
+/* kind ごとの色調 */
+.ch-genesis .ob-ch-icon,
+.ch-genesis .ob-ch-text {
+  color: var(--ob-gold-soft);
+}
+.ch-bloom .ob-ch-icon {
+  color: #8fd68f;
+}
+.ch-crash .ob-ch-icon {
+  color: #e0a24e;
+}
+.ch-extinction .ob-ch-icon {
+  color: #e06868;
+}
+.ch-carnivore .ob-ch-icon {
+  color: #e07a5a;
+}
+.ch-herbivore .ob-ch-icon {
+  color: #7ecf9a;
+}
+.ch-tribe .ob-ch-icon {
+  color: #b79ce0;
+}
+.ch-civilization .ob-ch-icon {
+  color: #e6cf7a;
+}
+.ch-divine .ob-ch-icon {
+  color: var(--ob-white);
+}
+
+/* =================================================================
+   左下 設定
+   ================================================================= */
+.ob-settings {
+  left: 18px;
+  bottom: 18px;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ob-settings-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border-bottom: 1px solid rgba(216, 184, 116, 0.1);
+}
+.ob-settings-title {
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  color: var(--ob-gold-soft);
+}
+.ob-settings-body {
+  padding: 12px 13px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ob-settings.collapsed .ob-settings-body {
+  display: none;
+}
+.ob-settings.collapsed .ob-settings-head {
+  border-bottom: none;
+}
+.ob-setting-line {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ob-btn-row {
+  display: flex;
+  gap: 7px;
+}
+.ob-btn {
+  flex: 1 1 auto;
+  padding: 8px 10px;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  border-radius: var(--ob-radius-sm);
+  border: 1px solid var(--ob-brd);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ob-txt);
+  cursor: pointer;
+  font-family: var(--ob-font);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.ob-btn:hover {
+  background: rgba(216, 184, 116, 0.14);
+  border-color: var(--ob-brd-hi);
+  color: var(--ob-gold-soft);
+}
+.ob-btn.active {
+  background: rgba(216, 184, 116, 0.2);
+  border-color: var(--ob-brd-hi);
+  color: var(--ob-gold-soft);
+  box-shadow: 0 0 12px var(--ob-glow);
+}
+.ob-btn-genesis {
+  color: var(--ob-gold-soft);
+  border-color: rgba(216, 184, 116, 0.32);
+}
+.ob-btn-genesis:hover {
+  background: rgba(216, 184, 116, 0.22);
+  box-shadow: 0 0 16px var(--ob-glow);
+}
+
+/* セグメント(画質) */
+.ob-seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.ob-seg-btn {
+  padding: 6px 3px;
+  font-size: 0.66rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--ob-txt-dim);
+  cursor: pointer;
+  font-family: var(--ob-font);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ob-seg-btn:hover {
+  color: var(--ob-txt);
+  background: rgba(216, 184, 116, 0.1);
+}
+.ob-seg-btn.active {
+  color: var(--ob-white);
+  background: rgba(216, 184, 116, 0.2);
+  border-color: var(--ob-brd-hi);
+}
+
+/* =================================================================
+   中央 タイトル演出
+   ================================================================= */
+.ob-title-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 60;
+}
+.ob-title-overlay.show {
+  opacity: 1;
+  transition: opacity 0.9s ease;
+}
+.ob-title-overlay.fade {
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+.ob-title-big {
+  font-size: clamp(2.4rem, 7vw, 5rem);
+  font-weight: 300;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  color: var(--ob-white);
+  text-shadow: 0 0 40px var(--ob-glow), 0 0 90px rgba(216, 184, 116, 0.3);
+}
+.ob-title-sub {
+  font-size: clamp(0.8rem, 1.6vw, 1.1rem);
+  letter-spacing: 0.6em;
+  text-indent: 0.6em;
+  color: var(--ob-gold);
+  text-shadow: 0 0 24px var(--ob-glow);
+}
+
+/* =================================================================
+   スクロールバー
+   ================================================================= */
+.ob-lineage-body::-webkit-scrollbar {
+  width: 6px;
+}
+.ob-lineage-body::-webkit-scrollbar-thumb {
+  background: rgba(216, 184, 116, 0.24);
+  border-radius: 4px;
+}
+.ob-lineage-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* =================================================================
+   狭い画面
+   ================================================================= */
+@media (max-width: 760px) {
+  .ob-chronicle {
+    width: calc(100vw - 36px);
+  }
+  .ob-lineage {
+    width: 220px;
+  }
+}

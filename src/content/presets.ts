@@ -13,7 +13,7 @@ export const PRESETS: Preset[] = [
     id: "genesis",
     name: "始まりの海",
     description: "藻・小魚・捕食魚が穏やかに均衡する、いのちの起点。",
-    seed: { algae: 45000, prey: 12000, predators: 350, clusters: 6, geneSpread: 0.12 },
+    seed: { algae: 26000, prey: 12000, predators: 350, clusters: 6, geneSpread: 0.12 },
     overrides: {},
   },
 
