@@ -1,0 +1,576 @@
+/* UIパネルのスタイル。所有: ui 担当。ダークガラスモーフィズム + シアン基調。 */
+
+:root {
+  --accent: #5ad0ff;
+  --accent-soft: #8fe0ff;
+  --accent-dim: #2f6f8c;
+  --glass-bg: rgba(9, 22, 38, 0.52);
+  --glass-bg-strong: rgba(6, 16, 29, 0.74);
+  --glass-brd: rgba(90, 208, 255, 0.16);
+  --glass-brd-hi: rgba(90, 208, 255, 0.42);
+  --txt: #d3ebff;
+  --txt-dim: #7ea6c6;
+  --txt-faint: #557b98;
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+  --radius: 14px;
+  --radius-sm: 9px;
+}
+
+/* ---- 共通ガラスパネル ---- */
+.ps-panel {
+  position: absolute;
+  pointer-events: auto;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-brd);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  color: var(--txt);
+  font-weight: 300;
+  letter-spacing: 0.02em;
+}
+
+.ps-mini-title,
+.ps-section-title {
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  color: var(--txt-faint);
+  text-transform: none;
+  font-weight: 400;
+}
+
+/* =================================================================
+   左上 HUD
+   ================================================================= */
+.ps-hud {
+  top: 16px;
+  left: 16px;
+  min-width: 178px;
+  padding: 14px 16px 12px;
+}
+.ps-hud-title {
+  font-size: 1.02rem;
+  font-weight: 300;
+  letter-spacing: 0.34em;
+  color: var(--accent-soft);
+  text-shadow: 0 0 18px rgba(90, 208, 255, 0.4);
+}
+.ps-hud-sub {
+  margin-top: 2px;
+  font-size: 0.56rem;
+  letter-spacing: 0.34em;
+  color: var(--txt-faint);
+}
+.ps-hud-stats {
+  display: flex;
+  gap: 18px;
+  margin: 12px 0 10px;
+}
+.ps-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.ps-stat-key {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--txt-faint);
+}
+.ps-stat-val {
+  font-size: 1.1rem;
+  font-weight: 300;
+  color: var(--accent-soft);
+  font-variant-numeric: tabular-nums;
+}
+.ps-hud-species {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(90, 208, 255, 0.1);
+}
+.ps-mini-title {
+  margin-bottom: 3px;
+}
+.ps-sprow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ps-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 8px currentColor;
+}
+.ps-spname {
+  flex: 1 1 auto;
+  font-size: 0.76rem;
+  color: var(--txt);
+}
+.ps-sppop {
+  font-size: 0.82rem;
+  color: var(--txt-dim);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+/* =================================================================
+   左端 縦ツールバー
+   ================================================================= */
+.ps-toolbar {
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 128px;
+}
+.ps-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+.ps-tool {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--txt);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.ps-tool:hover {
+  background: rgba(90, 208, 255, 0.12);
+  transform: translateY(-1px);
+}
+.ps-tool.active {
+  background: rgba(90, 208, 255, 0.2);
+  border-color: var(--glass-brd-hi);
+  box-shadow: 0 0 14px rgba(90, 208, 255, 0.35),
+    inset 0 0 10px rgba(90, 208, 255, 0.15);
+}
+.ps-tool-sep {
+  height: 1px;
+  background: rgba(90, 208, 255, 0.12);
+}
+.ps-slider-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ps-slider-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.ps-slider-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: var(--txt-faint);
+}
+.ps-slider-val {
+  font-size: 0.68rem;
+  color: var(--accent-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =================================================================
+   右パネル
+   ================================================================= */
+.ps-side {
+  top: 16px;
+  right: 16px;
+  width: 288px;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ps-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(90, 208, 255, 0.1);
+  flex: 0 0 auto;
+}
+.ps-side-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  color: var(--accent-soft);
+}
+.ps-collapse {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1px solid var(--glass-brd);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--txt-dim);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.ps-collapse:hover {
+  background: rgba(90, 208, 255, 0.14);
+  color: var(--accent-soft);
+}
+.ps-side-body {
+  padding: 12px 14px 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* 折りたたみ時 */
+.ps-side.collapsed {
+  width: 52px;
+}
+.ps-side.collapsed .ps-side-title,
+.ps-side.collapsed .ps-side-body {
+  display: none;
+}
+.ps-side.collapsed .ps-side-head {
+  border-bottom: none;
+  padding: 12px 0;
+  justify-content: center;
+}
+
+.ps-section-title {
+  margin-top: 2px;
+}
+
+/* タブ */
+.ps-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.ps-tab {
+  --tab-col: var(--accent);
+  padding: 7px 4px;
+  font-size: 0.74rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--txt-dim);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ps-tab:hover {
+  color: var(--txt);
+  background: rgba(90, 208, 255, 0.1);
+}
+.ps-tab.active {
+  color: #051019;
+  background: var(--tab-col);
+  border-color: var(--tab-col);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--tab-col) 55%, transparent);
+  font-weight: 500;
+}
+
+/* パラメータ行 */
+.ps-params {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.ps-prow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ps-prow-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.ps-plabel {
+  font-size: 0.72rem;
+  color: var(--txt);
+}
+.ps-pval {
+  font-size: 0.72rem;
+  color: var(--accent-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* レンジ入力の共通スタイル */
+.ps-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    rgba(90, 208, 255, 0.55),
+    rgba(90, 208, 255, 0.12)
+  );
+  outline: none;
+  cursor: pointer;
+}
+.ps-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 2px solid #08202f;
+  box-shadow: 0 0 8px rgba(90, 208, 255, 0.7);
+  transition: transform 0.12s ease;
+}
+.ps-range::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+.ps-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 2px solid #08202f;
+  box-shadow: 0 0 8px rgba(90, 208, 255, 0.7);
+}
+
+/* 遺伝子バー */
+.ps-genes {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 11px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(90, 208, 255, 0.08);
+}
+.ps-gene-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ps-gene-label {
+  flex: 0 0 62px;
+  font-size: 0.68rem;
+  color: var(--txt-dim);
+}
+.ps-gene-bar {
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.ps-gene-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent-soft));
+  box-shadow: 0 0 8px rgba(90, 208, 255, 0.5);
+  transition: width 0.4s ease;
+}
+.ps-gene-val {
+  flex: 0 0 30px;
+  text-align: right;
+  font-size: 0.66rem;
+  color: var(--accent-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* プリセット */
+.ps-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ps-preset {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-brd);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--txt);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.ps-preset:hover {
+  transform: translateX(2px);
+  background: rgba(90, 208, 255, 0.1);
+  border-color: var(--glass-brd-hi);
+  box-shadow: 0 0 14px rgba(90, 208, 255, 0.2);
+}
+.ps-preset-name {
+  font-size: 0.8rem;
+  color: var(--accent-soft);
+  font-weight: 400;
+}
+.ps-preset-desc {
+  font-size: 0.66rem;
+  color: var(--txt-faint);
+  line-height: 1.35;
+}
+
+/* 下部コントロール */
+.ps-divider {
+  height: 1px;
+  background: rgba(90, 208, 255, 0.12);
+  margin: 2px 0;
+}
+.ps-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.ps-btn-row {
+  display: flex;
+  gap: 7px;
+}
+.ps-btn {
+  flex: 1 1 auto;
+  padding: 9px 10px;
+  font-size: 0.76rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-brd);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--txt);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.ps-btn:hover {
+  background: rgba(90, 208, 255, 0.14);
+  border-color: var(--glass-brd-hi);
+}
+.ps-btn.paused {
+  background: rgba(90, 208, 255, 0.22);
+  border-color: var(--glass-brd-hi);
+  color: var(--accent-soft);
+}
+.ps-btn.active {
+  background: rgba(90, 208, 255, 0.2);
+  border-color: var(--glass-brd-hi);
+  color: var(--accent-soft);
+  box-shadow: 0 0 12px rgba(90, 208, 255, 0.3);
+}
+.ps-btn-danger:hover {
+  background: rgba(255, 96, 96, 0.16);
+  border-color: rgba(255, 120, 120, 0.5);
+  color: #ffb3b3;
+}
+
+/* =================================================================
+   下部中央 個体数チャート
+   ================================================================= */
+.ps-chart {
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(660px, calc(100vw - 300px));
+  padding: 10px 14px 12px;
+}
+.ps-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.ps-chart-legend {
+  display: flex;
+  gap: 12px;
+}
+.ps-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.64rem;
+  color: var(--txt-dim);
+}
+.ps-legend-item .ps-dot {
+  width: 7px;
+  height: 7px;
+}
+.ps-chart-canvas {
+  display: block;
+  width: 100%;
+  height: 132px;
+}
+
+/* =================================================================
+   トースト(絶滅通知)
+   ================================================================= */
+.ps-toast-layer {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+  z-index: 50;
+}
+.ps-toast {
+  padding: 11px 20px;
+  border-radius: 999px;
+  background: rgba(30, 8, 14, 0.72);
+  border: 1px solid rgba(255, 120, 120, 0.4);
+  color: #ffd0d0;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5), 0 0 18px rgba(255, 90, 90, 0.25);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  opacity: 0;
+  transform: translateY(-14px) scale(0.96);
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+.ps-toast.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.ps-toast.hide {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.98);
+}
+
+/* =================================================================
+   スクロールバー
+   ================================================================= */
+.ps-side-body::-webkit-scrollbar {
+  width: 7px;
+}
+.ps-side-body::-webkit-scrollbar-thumb {
+  background: rgba(90, 208, 255, 0.24);
+  border-radius: 4px;
+}
+.ps-side-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* =================================================================
+   狭い画面への配慮
+   ================================================================= */
+@media (max-width: 720px) {
+  .ps-chart {
+    width: calc(100vw - 32px);
+  }
+  .ps-side {
+    width: 240px;
+  }
+}
